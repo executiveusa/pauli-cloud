@@ -28,3 +28,53 @@ test('doctor detects canonical prompt tampering', async () => {
   assert.equal(result.status, 1);
   assert.match(result.stdout, /hash mismatch/);
 });
+
+test('inspect records capabilities and adopts assigned branch', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'pauli-cloud-inspect-'));
+  spawnSync('git', ['init', '-b', 'agent/work'], { cwd: root, encoding: 'utf8' });
+  await fs.writeFile(
+    path.join(root, 'package.json'),
+    JSON.stringify({ scripts: { test: 'node --test', build: 'node build.mjs' } })
+  );
+  await fs.writeFile(path.join(root, 'package-lock.json'), '{}');
+  const result = run('inspect', root, '--agent=claude-code', '--assigned-branch=agent/work');
+  assert.equal(result.status, 0);
+  const capabilities = JSON.parse(
+    await fs.readFile(path.join(root, '.pauli-cloud', 'capabilities.json'), 'utf8')
+  );
+  assert.equal(capabilities.repository.effective_branch, 'agent/work');
+  assert.equal(capabilities.agent, 'claude-code');
+});
+
+test('inspect blocks assigned branch conflicts', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'pauli-cloud-branch-'));
+  spawnSync('git', ['init', '-b', 'agent/current'], { cwd: root, encoding: 'utf8' });
+  const result = run('inspect', root, '--assigned-branch=agent/required');
+  assert.equal(result.status, 1);
+  assert.match(result.stdout, /assigned_branch_conflict/);
+});
+
+test('inspect detects mixed package managers', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'pauli-cloud-locks-'));
+  spawnSync('git', ['init', '-b', 'agent/work'], { cwd: root, encoding: 'utf8' });
+  await fs.writeFile(path.join(root, 'package-lock.json'), '{}');
+  await fs.writeFile(path.join(root, 'pnpm-lock.yaml'), 'lockfileVersion: 9');
+  const result = run('inspect', root, '--assigned-branch=agent/work');
+  assert.equal(result.status, 0);
+  const constraints = JSON.parse(
+    await fs.readFile(path.join(root, '.pauli-cloud', 'constraints.json'), 'utf8')
+  );
+  assert.ok(constraints.constraints.some((item) => item.id === 'multiple_package_managers'));
+});
+
+test('missing browser tooling is scoped to browser verification', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'pauli-cloud-browser-'));
+  spawnSync('git', ['init', '-b', 'agent/work'], { cwd: root, encoding: 'utf8' });
+  const result = run('inspect', root, '--assigned-branch=agent/work');
+  assert.equal(result.status, 0);
+  const constraints = JSON.parse(
+    await fs.readFile(path.join(root, '.pauli-cloud', 'constraints.json'), 'utf8')
+  );
+  const browser = constraints.constraints.find((item) => item.id === 'browser_harness');
+  assert.deepEqual(browser.blocks, ['browser_verification']);
+});
