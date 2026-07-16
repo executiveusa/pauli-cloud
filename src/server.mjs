@@ -7,10 +7,10 @@ import {
   redactObject
 } from './core.mjs';
 import {
-  doctorProject,
   projectPaths,
   statusProject
 } from './project.mjs';
+import { enterpriseDoctor } from './integrity.mjs';
 import { fleetList } from './runtime.mjs';
 
 function send(res, status, body, headers = {}) {
@@ -107,7 +107,7 @@ export async function startServer(root, {
         });
       }
       if (url.pathname === '/readyz') {
-        const result = await doctorProject(root);
+        const result = await enterpriseDoctor(root);
         return send(res, result.ok ? 200 : 503, {
           status: result.ok ? 'ready' : 'not_ready',
           checks: redactObject(result.checks)
