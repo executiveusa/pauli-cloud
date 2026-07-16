@@ -23,6 +23,7 @@ Requirements: Node.js 20+
 ```bash
 npm install
 node ./bin/pauli-cloud.mjs init /path/to/project
+node ./bin/pauli-cloud.mjs inspect /path/to/project --agent=claude-code --assigned-branch=agent/current-work
 node ./bin/pauli-cloud.mjs doctor /path/to/project
 node ./bin/pauli-cloud.mjs verify /path/to/project
 node ./bin/pauli-cloud.mjs status /path/to/project
@@ -37,7 +38,18 @@ node ./bin/pauli-cloud.mjs status /path/to/project
 - approval and protected-branch policy;
 - evidence directory.
 
-The command is idempotent and does not overwrite existing files unless `--force` is used.
+`inspect` records the active repository and agent environment:
+
+- current, assigned, effective, default, and protected branches;
+- dirty state, remote, and recent commits;
+- GitHub, Node, package-manager, Docker, and agent tools;
+- package scripts and lockfiles;
+- applicable instruction files;
+- CI, browser, and deployment capabilities;
+- hard, policy, and missing constraints;
+- a runtime adapter and next exact action.
+
+The commands are idempotent and do not overwrite existing initialized files unless `--force` is used.
 
 ## Core principles
 
@@ -52,4 +64,4 @@ The command is idempotent and does not overwrite existing files unless `--force`
 
 ## Current status
 
-Version `0.1.0` is the bootstrap kernel. See `docs/MASTER_SPEC.md` for the product requirements, architecture, compatibility contract, and roadmap.
+Phase 0 provides the bootstrap kernel. Phase 1 adds capability and session-constraint negotiation. See `docs/MASTER_SPEC.md` for the product requirements, architecture, compatibility contract, and roadmap.
