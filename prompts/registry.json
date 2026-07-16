@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0.0",
+  "prompts": [
+    {
+      "id": "zte-ai-native-master",
+      "version": "3.0.0",
+      "path": "prompts/ZTE_AI_NATIVE_MASTER_PROMPT.md",
+      "sha256": "ca6727ae48cf9069e83411601e874198ec7f80c02f2b72a6c09952252fdd7795",
+      "status": "canonical"
+    },
+    {
+      "id": "claude-branch-safe-resumable",
+      "version": "1.0.0",
+      "path": "prompts/CLAUDE_CODE_BRANCH_SAFE_RESUMABLE_LOOP.md",
+      "sha256": "0cc6a1364437c27812ccbf633f72887a0541b9e3f6fbcad2544948c176d06d48",
+      "status": "adapter"
+    }
+  ]
+}
