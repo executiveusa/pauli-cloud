@@ -64,6 +64,17 @@ for (const file of files) {
   });
 }
 
+const reportPath = process.env.PAULI_CLOUD_SCAN_REPORT;
+if (reportPath) {
+  await fs.mkdir(path.dirname(reportPath), { recursive: true });
+  await fs.writeFile(reportPath, `${JSON.stringify({
+    schema_version: '1.0.0',
+    files_checked: files.length,
+    finding_count: findings.length,
+    findings
+  }, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });
+}
+
 if (findings.length) {
   for (const finding of findings) {
     console.error(`Potential secret: ${finding.file}:${finding.line} (value suppressed)`);
