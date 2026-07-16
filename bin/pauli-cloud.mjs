@@ -59,7 +59,7 @@ const root = path.resolve(option('root', positional[0] ?? '.'));
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const json = flag('json');
 
-const HELP = `Pauli Cloud\n\nCommands:\n  init [root] [--force]\n  inspect [root] --agent=name [--assigned-branch=name]\n  compile [root] --agent=name [--dry-run]\n  uninstall [root] [--dry-run]\n  guard [root] --action=command|push|commit|phase-commit [--value=text] [--branch=name] [--approval=id]\n  approve [root] --type=production|irreversible|financial|consequential_agent_action [--scope=text]\n  phase [root] --operation=start|advance|block|fail --phase=name [--to=STAGE] [--reason=text]\n  checkpoint [root] [--pr=url]\n  prompt [root] --operation=register|verify|run|promote [options]\n  fleet [root] --operation=add|list|remove [options]\n  daily [root]\n  serve [root] [--host=127.0.0.1] [--port=4317]\n  doctor [root]\n  verify [root]\n  status [root]\n`;
+const HELP = `Pauli Cloud\n\nCommands:\n  init [root] [--force]\n  inspect [root] --agent=name [--assigned-branch=name]\n  compile [root] --agent=name [--dry-run] [--force]\n  uninstall [root] [--dry-run] [--force]\n  guard [root] --action=command|write|push|commit|phase-commit [--value=text] [--target-path=path] [--branch=name] [--approval=id]\n  approve [root] --type=production|irreversible|financial|consequential_agent_action [--scope=text] [--expires-minutes=60]\n  phase [root] --operation=start|advance|block|fail --phase=name [--to=STAGE] [--reason=text]\n  checkpoint [root] [--pr=url]\n  prompt [root] --operation=register|verify|run|promote [options]\n  fleet [root] --operation=add|list|remove [options]\n  daily [root]\n  serve [root] [--host=127.0.0.1] [--port=4317] [--rate-limit=120]\n  doctor [root]\n  verify [root]\n  status [root]\n`;
 
 function display(result) {
   if (json) {
@@ -95,13 +95,17 @@ try {
       force: flag('force')
     });
   } else if (command === 'uninstall') {
-    result = await uninstallPolicy(root, { dryRun: flag('dry-run') });
+    result = await uninstallPolicy(root, {
+      dryRun: flag('dry-run'),
+      force: flag('force')
+    });
   } else if (command === 'guard') {
     result = await evaluateGuard(root, {
       action: option('action'),
       value: option('value', ''),
       branch: option('branch'),
-      approval: option('approval')
+      approval: option('approval'),
+      targetPath: option('target-path')
     });
   } else if (command === 'approve') {
     result = await approveAction(root, {
@@ -191,8 +195,9 @@ try {
     result = await statusProject(root);
   } else if (command === 'serve') {
     const service = await startServer(root, {
-      host: option('host', '127.0.0.1'),
-      port: number('port', 4317)
+      host: option('host', process.env.PAULI_CLOUD_HOST ?? '127.0.0.1'),
+      port: number('port', process.env.PAULI_CLOUD_PORT ?? 4317),
+      rateLimit: number('rate-limit', process.env.PAULI_CLOUD_RATE_LIMIT ?? 120)
     });
     console.log(service.summary);
     for (const signal of ['SIGINT', 'SIGTERM']) {
