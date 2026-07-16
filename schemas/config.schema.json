@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pauli.cloud/schemas/config.schema.json",
+  "title": "Pauli Cloud Configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "project_name",
+    "mode",
+    "protected_branches",
+    "retry_limit",
+    "checkpoint",
+    "approvals",
+    "prompt_policy",
+    "service"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "project_name": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "mode": { "const": "resumable_verified_loop" },
+    "protected_branches": {
+      "type": "array",
+      "uniqueItems": true,
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "retry_limit": { "type": "integer", "minimum": 1, "maximum": 3 },
+    "checkpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tests", "commit", "push", "remote_sha_match", "pr_update"],
+      "properties": {
+        "tests": { "type": "boolean" },
+        "commit": { "type": "boolean" },
+        "push": { "type": "boolean" },
+        "remote_sha_match": { "type": "boolean" },
+        "pr_update": { "type": "boolean" }
+      }
+    },
+    "approvals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["production", "irreversible", "financial", "consequential_agent_actions"],
+      "properties": {
+        "production": { "type": "boolean" },
+        "irreversible": { "type": "boolean" },
+        "financial": { "type": "boolean" },
+        "consequential_agent_actions": { "type": "boolean" }
+      }
+    },
+    "prompt_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["canonical_immutable", "require_sha256", "experiments_separate"],
+      "properties": {
+        "canonical_immutable": { "type": "boolean" },
+        "require_sha256": { "type": "boolean" },
+        "experiments_separate": { "type": "boolean" }
+      }
+    },
+    "service": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["host", "port"],
+      "properties": {
+        "host": { "type": "string", "minLength": 1 },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 }
+      }
+    }
+  }
+}
