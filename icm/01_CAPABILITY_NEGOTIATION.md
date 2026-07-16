@@ -42,12 +42,12 @@ Pauli Cloud inspects the active repository and agent environment, classifies con
 - [x] mixed package-manager policy tested
 - [x] browser capability absence scoped correctly
 - [x] existing init and prompt-tamper tests remain green
-- [ ] GitHub Actions CI passes
-- [ ] PR phase ledger updated
+- [x] GitHub Actions CI passes
+- [x] PR phase ledger updated
 
 <EOI>
 phase: 01_capability_negotiation
-status: VALIDATING
+status: COMPLETE
 implemented:
   - repository and Git inspection
   - tool and package-manager detection
@@ -60,6 +60,7 @@ implemented:
 verified:
   - npm test: 6/6 passing locally
   - npm run verify: PASS locally
+  - GitHub Actions CI run 29505871837: SUCCESS
 known_limits:
   - GitHub authentication is detected through CLI availability, not connector discovery
   - enforcement hooks and policy compilation remain Phase 2
