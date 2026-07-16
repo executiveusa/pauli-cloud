@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { spawnSync } from 'node:child_process';
 
 const args = process.argv.slice(2);
 const command = args[0] ?? 'help';
@@ -11,9 +12,19 @@ const positional = args.slice(1).filter((arg) => !arg.startsWith('--'));
 const root = path.resolve(positional[0] ?? '.');
 const json = flags.has('--json');
 const force = flags.has('--force');
+const optionValue = (name, fallback = null) => {
+  const prefix = `--${name}=`;
+  const inline = args.find((arg) => arg.startsWith(prefix));
+  if (inline) return inline.slice(prefix.length);
+  const index = args.indexOf(`--${name}`);
+  if (index >= 0 && args[index + 1] && !args[index + 1].startsWith('--')) return args[index + 1];
+  return fallback;
+};
+const assignedBranch = optionValue('assigned-branch');
+const agentName = optionValue('agent', 'generic');
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
-const HELP = `Pauli Cloud\n\nUsage:\n  pauli-cloud init [directory] [--force]\n  pauli-cloud doctor [directory] [--json]\n  pauli-cloud verify [directory] [--json]\n  pauli-cloud status [directory] [--json]\n`;
+const HELP = `Pauli Cloud\n\nUsage:\n  pauli-cloud init [directory] [--force]\n  pauli-cloud doctor [directory] [--json]\n  pauli-cloud verify [directory] [--json]\n  pauli-cloud status [directory] [--json]\n  pauli-cloud inspect [directory] [--agent=name] [--assigned-branch=name] [--json]\n`;
 
 const requiredIcm = ['CONTEXT.md', 'INPUTS.md', 'PROCESS.md', 'OUTPUTS.md', 'DECISIONS.md', 'QA_CHECKLIST.md', 'STATUS.json'];
 
@@ -48,6 +59,234 @@ async function writeSafe(filePath, content) {
 
 function sha256(value) {
   return crypto.createHash('sha256').update(value).digest('hex');
+}
+
+function run(commandName, commandArgs = [], options = {}) {
+  const result = spawnSync(commandName, commandArgs, {
+    cwd: options.cwd ?? root,
+    encoding: 'utf8',
+    env: options.env ?? process.env,
+    shell: false
+  });
+  return {
+    ok: result.status === 0,
+    status: result.status,
+    stdout: (result.stdout ?? '').trim(),
+    stderr: (result.stderr ?? '').trim()
+  };
+}
+
+async function findInstructionFiles(projectRoot) {
+  const candidates = [
+    'AGENTS.md', 'CLAUDE.md', 'CLAUDE.local.md', 'CONTRIBUTING.md', 'SECURITY.md',
+    '.github/copilot-instructions.md', '.cursorrules', 'GEMINI.md'
+  ];
+  const found = [];
+  for (const candidate of candidates) {
+    if (await exists(path.join(projectRoot, candidate))) found.push(candidate);
+  }
+  const rulesDir = path.join(projectRoot, '.claude', 'rules');
+  if (await exists(rulesDir)) {
+    const queue = [rulesDir];
+    while (queue.length) {
+      const current = queue.pop();
+      for (const entry of await fs.readdir(current, { withFileTypes: true })) {
+        const entryPath = path.join(current, entry.name);
+        if (entry.isDirectory()) queue.push(entryPath);
+        else if (entry.name.endsWith('.md')) found.push(path.relative(projectRoot, entryPath));
+      }
+    }
+  }
+  return found.sort();
+}
+
+async function inspect(projectRoot) {
+  const p = paths(projectRoot);
+  if (!await exists(p.config)) await init(projectRoot);
+  const config = JSON.parse(await fs.readFile(p.config, 'utf8'));
+  const gitRootResult = run('git', ['rev-parse', '--show-toplevel'], { cwd: projectRoot });
+  const isGit = gitRootResult.ok;
+  const currentBranch = isGit ? run('git', ['branch', '--show-current'], { cwd: projectRoot }).stdout || null : null;
+  const remote = isGit ? run('git', ['remote', 'get-url', 'origin'], { cwd: projectRoot }).stdout || null : null;
+  const dirty = isGit ? Boolean(run('git', ['status', '--porcelain'], { cwd: projectRoot }).stdout) : null;
+  const recentCommits = isGit
+    ? run('git', ['log', '-5', '--pretty=format:%H|%s'], { cwd: projectRoot }).stdout
+        .split('\n')
+        .filter(Boolean)
+        .map((line) => {
+          const [sha, ...message] = line.split('|');
+          return { sha, message: message.join('|') };
+        })
+    : [];
+  let defaultBranch = null;
+  if (isGit) {
+    const symbolic = run('git', ['symbolic-ref', '--short', 'refs/remotes/origin/HEAD'], { cwd: projectRoot });
+    if (symbolic.ok) defaultBranch = symbolic.stdout.replace(/^origin\//, '');
+  }
+
+  const toolNames = ['git', 'gh', 'node', 'npm', 'pnpm', 'yarn', 'bun', 'docker', 'npx', 'claude'];
+  const tools = {};
+  for (const tool of toolNames) {
+    const probe = run(tool, ['--version'], { cwd: projectRoot });
+    tools[tool] = {
+      available: probe.ok,
+      version: probe.ok ? probe.stdout.split('\n')[0] : null
+    };
+  }
+
+  const lockfiles = {
+    npm: await exists(path.join(projectRoot, 'package-lock.json')),
+    pnpm: await exists(path.join(projectRoot, 'pnpm-lock.yaml')),
+    yarn: await exists(path.join(projectRoot, 'yarn.lock')),
+    bun: await exists(path.join(projectRoot, 'bun.lockb')) || await exists(path.join(projectRoot, 'bun.lock'))
+  };
+  let packageScripts = {};
+  if (await exists(path.join(projectRoot, 'package.json'))) {
+    try {
+      packageScripts = JSON.parse(await fs.readFile(path.join(projectRoot, 'package.json'), 'utf8')).scripts ?? {};
+    } catch {}
+  }
+  const browser = {
+    playwright: await exists(path.join(projectRoot, 'playwright.config.ts')) ||
+      await exists(path.join(projectRoot, 'playwright.config.js')) ||
+      await exists(path.join(projectRoot, 'playwright.config.mjs')),
+    cypress: await exists(path.join(projectRoot, 'cypress.config.ts')) ||
+      await exists(path.join(projectRoot, 'cypress.config.js')),
+    agent_browser_config: await exists(path.join(projectRoot, 'agent-browser.json'))
+  };
+  const ci = {
+    github_actions: await exists(path.join(projectRoot, '.github', 'workflows'))
+  };
+  const deployment = {
+    vercel: await exists(path.join(projectRoot, 'vercel.json')),
+    dockerfile: await exists(path.join(projectRoot, 'Dockerfile')),
+    compose: await exists(path.join(projectRoot, 'docker-compose.yml')) ||
+      await exists(path.join(projectRoot, 'compose.yml')) ||
+      await exists(path.join(projectRoot, 'compose.yaml')),
+    railway: await exists(path.join(projectRoot, 'railway.json')) ||
+      await exists(path.join(projectRoot, 'railway.toml'))
+  };
+  const instructions = await findInstructionFiles(projectRoot);
+  const effectiveBranch = assignedBranch ?? currentBranch;
+  const constraints = [];
+
+  if (!isGit) {
+    constraints.push({
+      type: 'MISSING',
+      id: 'git_repository',
+      blocks: ['commit', 'push', 'pull_request'],
+      detail: 'Directory is not a Git repository.'
+    });
+  }
+  if (assignedBranch && currentBranch && assignedBranch !== currentBranch) {
+    constraints.push({
+      type: 'HARD',
+      id: 'assigned_branch_conflict',
+      blocks: ['mutation'],
+      detail: `Session assigned ${assignedBranch}, current branch is ${currentBranch}. Adopt the assigned branch before mutation.`
+    });
+  }
+  if (effectiveBranch && config.protected_branches.includes(effectiveBranch)) {
+    constraints.push({
+      type: 'HARD',
+      id: 'protected_branch',
+      blocks: ['commit', 'push'],
+      detail: `${effectiveBranch} is protected.`
+    });
+  }
+  if (!tools.gh.available) {
+    constraints.push({
+      type: 'MISSING',
+      id: 'github_cli',
+      blocks: ['remote_checkpoint', 'pull_request'],
+      detail: 'GitHub CLI is unavailable; local work may continue but remote checkpointing requires another authenticated GitHub path.'
+    });
+  }
+  if (!Object.values(browser).some(Boolean)) {
+    constraints.push({
+      type: 'MISSING',
+      id: 'browser_harness',
+      blocks: ['browser_verification'],
+      detail: 'No supported browser-test configuration detected.'
+    });
+  }
+  const activeLockfiles = Object.entries(lockfiles)
+    .filter(([, present]) => present)
+    .map(([name]) => name);
+  if (activeLockfiles.length > 1) {
+    constraints.push({
+      type: 'POLICY',
+      id: 'multiple_package_managers',
+      blocks: ['dependency_mutation'],
+      detail: `Multiple lockfiles detected: ${activeLockfiles.join(', ')}.`
+    });
+  }
+
+  const capabilities = {
+    schema_version: '1.0.0',
+    inspected_at: new Date().toISOString(),
+    agent: agentName,
+    repository: {
+      root: isGit ? gitRootResult.stdout : projectRoot,
+      is_git: isGit,
+      current_branch: currentBranch,
+      assigned_branch: assignedBranch,
+      effective_branch: effectiveBranch,
+      default_branch: defaultBranch,
+      remote,
+      dirty,
+      recent_commits: recentCommits
+    },
+    tools,
+    package: { lockfiles, scripts: packageScripts },
+    browser,
+    ci,
+    deployment,
+    instruction_files: instructions
+  };
+
+  await fs.writeFile(
+    path.join(p.base, 'capabilities.json'),
+    `${JSON.stringify(capabilities, null, 2)}\n`,
+    'utf8'
+  );
+  await fs.writeFile(
+    path.join(p.base, 'constraints.json'),
+    `${JSON.stringify({ schema_version: '1.0.0', constraints }, null, 2)}\n`,
+    'utf8'
+  );
+
+  const state = JSON.parse(await fs.readFile(p.state, 'utf8'));
+  state.branch = effectiveBranch;
+  state.blockers = constraints
+    .filter((item) => item.type === 'HARD')
+    .map((item) => item.id);
+  state.next_exact_action = state.blockers.length
+    ? `Resolve hard constraints: ${state.blockers.join(', ')}.`
+    : 'Create a bounded phase plan from the detected capabilities, then run deterministic gates.';
+  await fs.writeFile(p.state, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
+
+  const adapterPath = path.join(p.base, 'adapters', `${agentName}.runtime.md`);
+  await fs.writeFile(
+    adapterPath,
+    `# Runtime Adapter: ${agentName}\n\nEffective branch: ${effectiveBranch ?? 'unassigned'}\n\nHard blockers: ${state.blockers.length ? state.blockers.join(', ') : 'none'}\n\nNext action: ${state.next_exact_action}\n`,
+    'utf8'
+  );
+
+  return {
+    ok: state.blockers.length === 0,
+    summary: state.blockers.length
+      ? `Inspection completed with hard blockers: ${state.blockers.join(', ')}.`
+      : `Inspection passed for ${agentName} on ${effectiveBranch ?? 'no branch'}.`,
+    checks: constraints.map((item) => ({
+      name: item.id,
+      ok: item.type !== 'HARD',
+      detail: `${item.type}: ${item.detail}`
+    })),
+    capabilities: path.join(p.base, 'capabilities.json'),
+    constraints: path.join(p.base, 'constraints.json'),
+    adapter: adapterPath
+  };
 }
 
 async function init(projectRoot) {
@@ -192,12 +431,15 @@ async function verify(projectRoot) {
   const p = paths(projectRoot);
   await fs.mkdir(p.evidence, { recursive: true });
   const evidencePath = path.join(p.evidence, 'latest.json');
-  await fs.writeFile(evidencePath, `${JSON.stringify({
-    schema_version: '1.0.0',
-    verified_at: new Date().toISOString(),
-    root: projectRoot,
-    ...result
-  }, null, 2)}\n`);
+  await fs.writeFile(
+    evidencePath,
+    `${JSON.stringify({
+      schema_version: '1.0.0',
+      verified_at: new Date().toISOString(),
+      root: projectRoot,
+      ...result
+    }, null, 2)}\n`
+  );
   return {
     ...result,
     summary: `${result.summary} Evidence: ${evidencePath}`,
@@ -240,6 +482,7 @@ try {
   else if (command === 'doctor') display(await doctor(root));
   else if (command === 'verify') display(await verify(root));
   else if (command === 'status') display(await status(root));
+  else if (command === 'inspect') display(await inspect(root));
   else if (['help', '--help', '-h'].includes(command)) console.log(HELP);
   else throw new Error(`unknown command: ${command}\n\n${HELP}`);
 } catch (error) {
