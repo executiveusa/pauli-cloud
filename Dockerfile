@@ -1,4 +1,5 @@
 FROM node:22-alpine AS validation
+RUN apk add --no-cache git openssh-client ca-certificates
 WORKDIR /opt/pauli-cloud
 COPY package.json package-lock.json ./
 RUN npm ci --ignore-scripts
@@ -10,11 +11,13 @@ COPY prompts ./prompts
 COPY schemas ./schemas
 COPY icm ./icm
 COPY docs ./docs
-COPY README.md AGENTS.md CLAUDE.md SECURITY.md ./
+COPY README.md AGENTS.md CLAUDE.md SECURITY.md LICENSE ./
 RUN npm run check && npm pack --dry-run
 
 FROM node:22-alpine AS runtime
-RUN addgroup -S pauli && adduser -S -G pauli -h /home/pauli pauli
+RUN apk add --no-cache git openssh-client ca-certificates \
+  && addgroup -S pauli \
+  && adduser -S -G pauli -h /home/pauli pauli
 WORKDIR /opt/pauli-cloud
 COPY --from=validation --chown=pauli:pauli /opt/pauli-cloud/package.json /opt/pauli-cloud/package-lock.json ./
 COPY --from=validation --chown=pauli:pauli /opt/pauli-cloud/bin ./bin
@@ -23,6 +26,7 @@ COPY --from=validation --chown=pauli:pauli /opt/pauli-cloud/prompts ./prompts
 COPY --from=validation --chown=pauli:pauli /opt/pauli-cloud/schemas ./schemas
 COPY --from=validation --chown=pauli:pauli /opt/pauli-cloud/icm ./icm
 COPY --from=validation --chown=pauli:pauli /opt/pauli-cloud/docs ./docs
+COPY --from=validation --chown=pauli:pauli /opt/pauli-cloud/README.md /opt/pauli-cloud/AGENTS.md /opt/pauli-cloud/CLAUDE.md /opt/pauli-cloud/SECURITY.md /opt/pauli-cloud/LICENSE ./
 ENV NODE_ENV=production
 ENV PAULI_CLOUD_HOST=0.0.0.0
 ENV PAULI_CLOUD_PORT=4317
