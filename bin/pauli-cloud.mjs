@@ -7,12 +7,8 @@ import {
   statusProject
 } from '../src/project.mjs';
 import { enterpriseDoctor, enterpriseVerify } from '../src/integrity.mjs';
-import {
-  compilePolicy,
-  uninstallPolicy,
-  evaluateGuard,
-  approveAction
-} from '../src/policy.mjs';
+import { compilePolicy, uninstallPolicy } from '../src/compiler.mjs';
+import { evaluateGuard, approveAction } from '../src/policy.mjs';
 import {
   phaseStart,
   phaseAdvance,
