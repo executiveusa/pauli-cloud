@@ -2,5 +2,6 @@ node_modules/
 coverage/
 .DS_Store
 *.log
-.pauli-cloud/evidence/*.json
-.pauli-cloud/tmp/
+.pauli-cloud/
+workspace/
+*.tgz
