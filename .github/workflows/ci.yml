@@ -34,7 +34,17 @@ jobs:
       - name: Syntax
         run: npm run lint
       - name: Secret scan
+        env:
+          PAULI_CLOUD_SCAN_REPORT: artifacts/secret-scan-node-${{ matrix.node }}.json
         run: npm run secret-scan
+      - name: Upload secret-scan evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: secret-scan-node-${{ matrix.node }}-${{ github.run_id }}
+          path: artifacts/secret-scan-node-${{ matrix.node }}.json
+          if-no-files-found: warn
+          retention-days: 14
       - name: Tests and per-module coverage
         run: npm run coverage
       - name: Self verification
