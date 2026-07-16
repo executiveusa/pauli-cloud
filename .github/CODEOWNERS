@@ -1,0 +1,11 @@
+# Pauli Cloud code ownership
+* @executiveusa
+
+# Security and release surfaces
+/.github/workflows/ @executiveusa
+/src/policy.mjs @executiveusa
+/src/runtime.mjs @executiveusa
+/src/server.mjs @executiveusa
+/src/prompts.mjs @executiveusa
+/SECURITY.md @executiveusa
+/docs/architecture/THREAT_MODEL.md @executiveusa
