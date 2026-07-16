@@ -39,6 +39,7 @@ const directPatterns = [
 ];
 const assignmentPattern = /(?:^|[\s,{"'])([A-Za-z0-9_]*(?:password|passwd|secret|api[_-]?key|token)[A-Za-z0-9_]*)\s*[:=]\s*["']?([^\s"',}]+)/i;
 const placeholderPattern = /^(?:\$\{|<|example|test|fake|dummy|placeholder|load-from|use-a|ci-only|none|null|redacted|changeme)/i;
+const referencePattern = /^(?:process\.env\.|Deno\.env\.|Bun\.env\.|env\.|os\.environ|secrets\.|vault:|secret:|ref:)/i;
 const findings = [];
 
 for (const file of files) {
@@ -56,7 +57,8 @@ for (const file of files) {
     const assignment = line.match(assignmentPattern);
     if (assignment) {
       const value = assignment[2];
-      if (value.length >= 8 && !placeholderPattern.test(value)) detected = true;
+      const safeReference = placeholderPattern.test(value) || referencePattern.test(value);
+      if (value.length >= 8 && !safeReference) detected = true;
     }
     if (detected) findings.push({ file, line: index + 1 });
   });
