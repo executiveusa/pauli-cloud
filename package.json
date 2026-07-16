@@ -1,23 +1,30 @@
 {
   "name": "pauli-cloud",
-  "version": "0.1.0",
-  "description": "Model-agnostic ZTE, ICM, prompt-memory, and verification add-on for coding agents.",
+  "version": "1.0.0",
+  "description": "Enterprise model-agnostic ZTE, ICM, prompt-memory, policy, and verification control plane for coding agents.",
   "type": "module",
   "private": false,
   "bin": {
     "pauli-cloud": "./bin/pauli-cloud.mjs"
   },
   "scripts": {
+    "lint": "node ./scripts/validate.mjs",
     "test": "node --test",
+    "coverage": "node --experimental-test-coverage --test",
     "doctor": "node ./bin/pauli-cloud.mjs doctor .",
     "verify": "node ./bin/pauli-cloud.mjs verify .",
-    "check": "npm test && npm run verify"
+    "verify:self": "node ./bin/pauli-cloud.mjs init . && node ./bin/pauli-cloud.mjs doctor . && node ./bin/pauli-cloud.mjs prompt . --operation=verify",
+    "check": "npm run lint && npm run coverage && npm run verify:self",
+    "start": "node ./bin/pauli-cloud.mjs serve .",
+    "prepack": "npm run check"
   },
   "engines": {
     "node": ">=20"
   },
   "files": [
     "bin",
+    "src",
+    "scripts",
     "schemas",
     "prompts",
     "icm",
@@ -25,6 +32,18 @@
     "README.md",
     "AGENTS.md",
     "CLAUDE.md",
-    "SECURITY.md"
-  ]
+    "SECURITY.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "ai-agents",
+    "governance",
+    "zte",
+    "icm",
+    "claude-code",
+    "codex",
+    "devops",
+    "policy-as-code"
+  ],
+  "license": "Apache-2.0"
 }
