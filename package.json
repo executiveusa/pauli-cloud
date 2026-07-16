@@ -9,12 +9,13 @@
   },
   "scripts": {
     "lint": "node ./scripts/validate.mjs",
+    "secret-scan": "node ./scripts/secret-scan.mjs",
     "test": "node --test",
-    "coverage": "node --experimental-test-coverage --test",
+    "coverage": "node ./scripts/coverage-gate.mjs",
     "doctor": "node ./bin/pauli-cloud.mjs doctor .",
     "verify": "node ./bin/pauli-cloud.mjs verify .",
     "verify:self": "node ./bin/pauli-cloud.mjs init . && node ./bin/pauli-cloud.mjs doctor . && node ./bin/pauli-cloud.mjs prompt . --operation=verify",
-    "check": "npm run lint && npm run coverage && npm run verify:self",
+    "check": "npm run lint && npm run secret-scan && npm run coverage && npm run verify:self",
     "start": "node ./bin/pauli-cloud.mjs serve .",
     "prepack": "npm run check"
   },
