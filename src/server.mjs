@@ -1,5 +1,6 @@
 import http from 'node:http';
 import fs from 'node:fs/promises';
+import crypto from 'node:crypto';
 import {
   isLoopback,
   now,
@@ -21,35 +22,74 @@ function send(res, status, body, headers = {}) {
     'content-length': Buffer.byteLength(payload),
     'cache-control': 'no-store',
     'x-content-type-options': 'nosniff',
+    'x-frame-options': 'DENY',
+    'referrer-policy': 'no-referrer',
     ...headers
   });
   res.end(payload);
 }
 
+function tokenDigest(value) {
+  return crypto.createHash('sha256').update(String(value)).digest();
+}
+
 function authorized(req, token) {
   if (!token) return true;
-  return (req.headers.authorization ?? '') === `Bearer ${token}`;
+  const header = req.headers.authorization ?? '';
+  const provided = header.startsWith('Bearer ') ? header.slice(7) : '';
+  return crypto.timingSafeEqual(tokenDigest(provided), tokenDigest(token));
+}
+
+function rateLimiter({ windowMs = 60_000, max = 120 } = {}) {
+  const clients = new Map();
+  return (req) => {
+    const key = req.socket.remoteAddress ?? 'unknown';
+    const current = Date.now();
+    const existing = clients.get(key);
+    if (!existing || current >= existing.resetAt) {
+      clients.set(key, { count: 1, resetAt: current + windowMs });
+      return { allowed: true, retryAfter: 0 };
+    }
+    existing.count += 1;
+    if (existing.count <= max) return { allowed: true, retryAfter: 0 };
+    return {
+      allowed: false,
+      retryAfter: Math.max(1, Math.ceil((existing.resetAt - current) / 1000))
+    };
+  };
 }
 
 export async function startServer(root, {
   host = '127.0.0.1',
   port = 4317,
-  token = process.env.PAULI_CLOUD_API_TOKEN
+  token = process.env.PAULI_CLOUD_API_TOKEN,
+  rateLimit = 120
 } = {}) {
   if (!isLoopback(host) && !token) {
     throw new Error('PAULI_CLOUD_API_TOKEN is required when binding beyond loopback');
   }
   const started = Date.now();
+  const allowRequest = rateLimiter({ max: rateLimit });
   const counters = {
     requests_total: 0,
-    errors_total: 0
+    errors_total: 0,
+    rate_limited_total: 0
   };
   const server = http.createServer(async (req, res) => {
     counters.requests_total += 1;
+    const limit = allowRequest(req);
+    if (!limit.allowed) {
+      counters.rate_limited_total += 1;
+      return send(res, 429, { error: 'rate_limited' }, {
+        'retry-after': String(limit.retryAfter)
+      });
+    }
     const url = new URL(req.url, 'http://localhost');
     try {
       if (req.method !== 'GET') {
-        return send(res, 405, { error: 'method_not_allowed' });
+        return send(res, 405, { error: 'method_not_allowed' }, {
+          allow: 'GET'
+        });
       }
       if (url.pathname === '/healthz') {
         return send(res, 200, {
@@ -69,7 +109,7 @@ export async function startServer(root, {
         return send(
           res,
           200,
-          `# TYPE pauli_cloud_requests_total counter\npauli_cloud_requests_total ${counters.requests_total}\n# TYPE pauli_cloud_errors_total counter\npauli_cloud_errors_total ${counters.errors_total}\n`
+          `# TYPE pauli_cloud_requests_total counter\npauli_cloud_requests_total ${counters.requests_total}\n# TYPE pauli_cloud_errors_total counter\npauli_cloud_errors_total ${counters.errors_total}\n# TYPE pauli_cloud_rate_limited_total counter\npauli_cloud_rate_limited_total ${counters.rate_limited_total}\n`
         );
       }
       if (!authorized(req, token)) {
@@ -96,12 +136,9 @@ export async function startServer(root, {
         return send(res, 200, { events: redactObject(events) });
       }
       return send(res, 404, { error: 'not_found' });
-    } catch (error) {
+    } catch {
       counters.errors_total += 1;
-      return send(res, 500, {
-        error: 'internal_error',
-        message: error.message
-      });
+      return send(res, 500, { error: 'internal_error' });
     }
   });
   server.keepAliveTimeout = 5_000;
