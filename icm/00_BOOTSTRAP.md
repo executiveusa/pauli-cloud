@@ -45,11 +45,12 @@ Pauli Cloud is a new independent repository. The bootstrap phase creates a porta
 - [x] tampering is detected
 - [x] verification emits evidence
 - [x] CI is defined
-- [ ] GitHub draft PR opened
+- [x] GitHub draft PR opened
+- [x] GitHub Actions CI passes
 
 <EOI>
 phase: 00_bootstrap
-status: VALIDATING
+status: COMPLETE
 target_state: Portable Pauli Cloud bootstrap kernel
 implemented:
   - zero-dependency Node 20 CLI
@@ -61,9 +62,11 @@ implemented:
 verified:
   - npm test: 2/2 passing locally
   - npm run verify: PASS locally
+  - GitHub Actions CI run 29505414586: SUCCESS
+  - draft pull request 1: OPEN
 known_limits:
   - executable policy compiler not yet implemented
   - GitHub checkpoint verifier not yet implemented
 next_phase: capability_and_constraint_negotiation
-rollback: revert bootstrap branch
+rollback: close pull request 1 or revert bootstrap branch
 </EOI>
