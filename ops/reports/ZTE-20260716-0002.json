@@ -1,0 +1,83 @@
+{
+  "schema_version": "1.0.0",
+  "bead_id": "ZTE-20260716-0002",
+  "repository": "executiveusa/pauli-cloud",
+  "branch": "zte/ZTE-20260716-0002/enterprise-runtime",
+  "pull_request": "https://github.com/executiveusa/pauli-cloud/pull/4",
+  "version": "1.0.0",
+  "status": "release_candidate_complete",
+  "production_deployed": false,
+  "implemented": [
+    "capability_and_session_negotiation",
+    "cross_agent_policy_compiler",
+    "claude_code_blocking_hooks",
+    "codex_and_generic_adapters",
+    "transactional_install_and_drift_safe_uninstall",
+    "protected_branch_secret_and_irreversibility_guards",
+    "expiring_approval_registry",
+    "resumable_phase_state_machine",
+    "append_only_audit_ledger",
+    "exact_remote_sha_checkpoint",
+    "immutable_prompt_registry_and_measured_promotion",
+    "fleet_registry_and_daily_report",
+    "authenticated_read_only_service_api",
+    "enterprise_integrity_doctor",
+    "hardened_container_and_compose",
+    "ci_codeql_dependency_review_and_release_workflows",
+    "enterprise_runbooks_and_governance"
+  ],
+  "verification": {
+    "ci": {
+      "run_id": 29515358737,
+      "conclusion": "success",
+      "node_20": "success",
+      "node_22": "success",
+      "package_smoke": "success",
+      "container_smoke": "success",
+      "secret_scan": "success",
+      "coverage_floor": "success"
+    },
+    "codeql": {
+      "run_id": 29515358534,
+      "conclusion": "success"
+    },
+    "dependency_review": {
+      "run_id": 29515357900,
+      "conclusion": "success"
+    },
+    "guardian": "pass"
+  },
+  "circuit_breakers": {
+    "production_gate": "active",
+    "secret_guard": "implemented",
+    "loop_guard": "implemented",
+    "blast_radius_guard": "documented_and_planned",
+    "irreversibility_guard": "implemented",
+    "cost_guard": "not_triggered"
+  },
+  "residual_gates": [
+    {
+      "id": "github_controls",
+      "issue": "https://github.com/executiveusa/pauli-cloud/issues/5",
+      "status": "human_configuration_required"
+    },
+    {
+      "id": "production_approval",
+      "required_phrase": "APPROVE PRODUCTION",
+      "status": "not_granted"
+    },
+    {
+      "id": "registry_credential",
+      "name": "NPM_TOKEN",
+      "status": "protected_environment_secret_required"
+    }
+  ],
+  "rollback": [
+    "close_or_revert_pull_request_4",
+    "run_pauli_cloud_uninstall_in_target_projects",
+    "restore_pauli_cloud_state_from_verified_backup",
+    "deploy_previous_verified_package_or_image"
+  ],
+  "next_safe_action": "complete_issue_5_then_review_and_merge_pr_4_after_final_head_checks",
+  "reported_at": "2026-07-16T14:45:00-07:00"
+}
