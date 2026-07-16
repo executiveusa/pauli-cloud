@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { randomUUID } from 'node:crypto';
 import {
   appendJsonLine,
   now,
@@ -32,7 +33,7 @@ async function event(root, type, data = {}) {
   const p = projectPaths(root);
   await appendJsonLine(p.ledger, {
     schema_version: '1.0.0',
-    event_id: `evt_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+    event_id: `evt_${randomUUID().replaceAll('-', '')}`,
     type,
     at: now(),
     ...data
@@ -43,17 +44,18 @@ export async function phaseStart(root, { phase, beadId = null, branch = null } =
   if (!phase) throw new Error('phase is required');
   const p = projectPaths(root);
   const state = await readJson(p.state);
+  const normalizedPhase = safeName(phase);
   if (
     state.current_stage &&
     !['COMPLETE', 'BLOCKED', 'FAILED', 'CONTEXT'].includes(state.current_stage) &&
-    state.current_phase !== phase
+    state.current_phase !== normalizedPhase
   ) {
     throw new Error(`phase ${state.current_phase} is still ${state.current_stage}`);
   }
   state.bead_id = beadId ?? state.bead_id ??
     `ZTE-${new Date().toISOString().slice(0, 10).replaceAll('-', '')}-${String(Date.now() % 10000).padStart(4, '0')}`;
   state.branch = branch ?? state.branch;
-  state.current_phase = safeName(phase);
+  state.current_phase = normalizedPhase;
   state.current_stage = 'CONTEXT';
   state.blockers = [];
   state.acceptance_remaining = [];
@@ -153,8 +155,8 @@ export async function checkpoint(root, { pr = null } = {}) {
   const state = await readJson(p.state);
   const branch = run('git', ['branch', '--show-current'], { cwd: root });
   const local = run('git', ['rev-parse', 'HEAD'], { cwd: root });
-  if (!branch.ok || !local.ok) throw new Error('Git checkpoint unavailable');
-  const remote = run('git', ['ls-remote', 'origin', branch.stdout], { cwd: root });
+  if (!branch.ok || !branch.stdout || !local.ok) throw new Error('Git checkpoint unavailable');
+  const remote = run('git', ['ls-remote', 'origin', `refs/heads/${branch.stdout}`], { cwd: root });
   const remoteSha = remote.ok && remote.stdout ? remote.stdout.split(/\s+/)[0] : null;
   const matches = Boolean(remoteSha && remoteSha === local.stdout);
   state.branch = branch.stdout;
@@ -194,17 +196,22 @@ export async function fleetAdd(root, {
 } = {}) {
   if (!name || !repoPath) throw new Error('name and repo path are required');
   const p = projectPaths(root);
+  const resolved = path.resolve(repoPath);
+  if (!await exists(resolved)) throw new Error('repository path does not exist');
+  const realRoot = await fs.realpath(resolved);
+  const gitRoot = run('git', ['rev-parse', '--show-toplevel'], { cwd: realRoot });
+  if (!gitRoot.ok) throw new Error('fleet entry must be a Git repository');
   const fleet = await readJson(p.fleet, { schema_version: '1.0.0', repositories: [] });
   const id = safeName(name);
   const record = {
     id,
     name,
-    root: path.resolve(repoPath),
+    root: gitRoot.stdout,
     remote,
     owner,
     status: 'registered',
     added_at: now(),
-    last_seen_at: null
+    last_seen_at: now()
   };
   const index = fleet.repositories.findIndex((item) => item.id === id);
   if (index >= 0) {
@@ -256,12 +263,16 @@ export async function fleetRemove(root, { name } = {}) {
 
 export async function dailyReport(root) {
   const p = projectPaths(root);
-  let events = [];
+  const events = [];
+  let corruptedEventLines = 0;
   if (await exists(p.ledger)) {
-    events = (await fs.readFile(p.ledger, 'utf8'))
-      .split('\n')
-      .filter(Boolean)
-      .map((line) => JSON.parse(line));
+    for (const line of (await fs.readFile(p.ledger, 'utf8')).split('\n').filter(Boolean)) {
+      try {
+        events.push(JSON.parse(line));
+      } catch {
+        corruptedEventLines += 1;
+      }
+    }
   }
   const since = Date.now() - 24 * 60 * 60 * 1000;
   const recent = events.filter((item) => Date.parse(item.at) >= since);
@@ -271,6 +282,7 @@ export async function dailyReport(root) {
     generated_at: now(),
     period_hours: 24,
     event_count: recent.length,
+    corrupted_event_lines: corruptedEventLines,
     event_types: Object.fromEntries(
       [...new Set(recent.map((item) => item.type))]
         .map((type) => [type, recent.filter((item) => item.type === type).length])
@@ -293,8 +305,10 @@ export async function dailyReport(root) {
     status: 'pending'
   });
   return {
-    ok: true,
-    summary: `Daily report written to ${target}.`,
+    ok: corruptedEventLines === 0,
+    summary: corruptedEventLines === 0
+      ? `Daily report written to ${target}.`
+      : `Daily report written with ${corruptedEventLines} corrupt event lines detected.`,
     report,
     path: target
   };
