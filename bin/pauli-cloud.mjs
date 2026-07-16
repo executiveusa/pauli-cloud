@@ -4,10 +4,9 @@ import { fileURLToPath } from 'node:url';
 import {
   initProject,
   inspectProject,
-  doctorProject,
-  verifyProject,
   statusProject
 } from '../src/project.mjs';
+import { enterpriseDoctor, enterpriseVerify } from '../src/integrity.mjs';
 import {
   compilePolicy,
   uninstallPolicy,
@@ -188,9 +187,9 @@ try {
   } else if (command === 'daily') {
     result = await dailyReport(root);
   } else if (command === 'doctor') {
-    result = await doctorProject(root);
+    result = await enterpriseDoctor(root);
   } else if (command === 'verify') {
-    result = await verifyProject(root);
+    result = await enterpriseVerify(root);
   } else if (command === 'status') {
     result = await statusProject(root);
   } else if (command === 'serve') {
