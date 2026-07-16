@@ -1,119 +1,182 @@
-# Pauli Cloud Product Requirements
+# Pauli Cloud Enterprise Product Requirements
 
-## Product
+## Product definition
 
-Pauli Cloud is an independent overlay that installs consistent execution governance into any software repository and any compatible coding-agent environment.
+Pauli Cloud is a model-agnostic execution-governance control plane that installs consistent ZTE, ICM, prompt-memory, safety, evidence, and Git discipline into any compatible software repository and coding-agent environment.
+
+It is both:
+
+1. a sovereign repository-local CLI and plain-file runtime; and
+2. an optional read-oriented operational service for fleet visibility.
+
+Core operation must not depend on a proprietary hosted backend.
 
 ## Primary user
 
-A technical operator managing multiple repositories, models, IDEs, and autonomous agents who needs the same quality, safety, memory, and Git discipline everywhere.
+A technical operator managing multiple repositories, models, IDEs, and autonomous agents who needs the same quality, safety, memory, approval, and recovery behavior everywhere.
 
 ## Jobs to be done
 
-1. Initialize a project with ZTE, ICM, prompt registry, policies, adapters, and resumable state.
-2. Detect agent/session constraints and compile compatible instructions.
-3. Verify prompt integrity, ICM completeness, protected-branch policy, and checkpoint evidence.
-4. Resume long builds across models and sessions without losing decisions.
-5. Preserve successful patterns and recurring failures as reusable assets.
-6. Produce machine-readable evidence for commits, PRs, tests, previews, and approvals.
+1. Initialize a project with ZTE, ICM, prompt registry, policies, approvals, adapters, evidence, and resumable state.
+2. Detect agent/session constraints and compile compatible instructions instead of fighting higher-priority restrictions.
+3. Enforce protected branches, secret safety, irreversible-action approvals, verification gates, and rollback.
+4. Resume long builds across agents and sessions without losing state or decisions.
+5. Preserve prompts as immutable, evaluated intellectual property.
+6. Produce machine-readable evidence for tests, commits, remote SHAs, PRs, previews, approvals, and incidents.
+7. Register and observe multiple sovereign repositories without taking ownership of their data.
+8. Package the system for repeatable CLI, container, CI, and enterprise deployment.
 
-## MVP acceptance
+## Version 1 acceptance
 
-- Zero-dependency CLI works on Node 20+.
-- `init` is idempotent.
-- `doctor` detects missing governance artifacts and prompt tampering.
-- `verify` writes machine-readable evidence.
-- Claude Code, Codex, and generic adapters are generated.
-- CI runs tests and self-verification.
-- Product work occurs through a branch and PR.
+### Runtime
 
-# Architecture
+- Node.js 20 and 22 supported.
+- No runtime npm dependencies.
+- Commands support machine-readable JSON output where applicable.
+- Initialization and policy compilation are idempotent.
+- Atomic writes protect structured state from partial updates.
+- Invalid phase transitions are rejected.
+- Third identical failure activates the loop guard.
+
+### Compatibility
+
+- Claude Code adapter compiles scoped rules, Guardian subagent, settings hooks, and branch-safe instructions.
+- Codex adapter compiles AGENTS-compatible instructions and guards.
+- Generic adapter compiles Markdown, JSON, POSIX, and PowerShell controls.
+- Session-assigned branches are adopted and recorded.
+- Missing optional capabilities block only dependent stages.
+
+### Security
+
+- User-authored files are preserved or explicitly reported as conflicts.
+- Changed user files are backed up and restorable.
+- Protected-branch pushes and commits are blocked.
+- Likely secret values are blocked and never echoed.
+- Destructive commands require active, expiring approvals.
+- Service defaults to loopback and requires a token beyond loopback.
+- API responses are redacted and non-cacheable.
+- Container runs non-root with all Linux capabilities dropped.
+
+### Evidence
+
+- Doctor verifies required files, configuration, resumable state, and prompt hashes.
+- Verification writes a machine-readable evidence record.
+- Checkpoint compares local and remote Git SHAs.
+- Audit events are append-only NDJSON.
+- Every critical source module maintains at least 80% line coverage.
+- Node 20/22 CI, container smoke, CodeQL, dependency review, and secret scan pass.
+
+### Prompt intelligence
+
+- Prompt IDs and versions are unique.
+- Semantic versions are mandatory.
+- Canonical prompts are immutable and SHA-256 registered.
+- Experiments remain separate from canonical prompts.
+- Promotion requires a passing measured run whose score meets or exceeds baseline.
+- Promotion writes a durable learning record.
+
+### Operations
+
+- Fleet registry supports multiple repository roots.
+- Daily report summarizes recent events, blockers, stage, and next action.
+- Service exposes health, readiness, metrics, redacted status, fleet, and recent events.
+- Installation, deployment, backup, restore, incident, and release runbooks exist.
+- Production release requires exact approval and protected-environment review.
+
+## Architecture
 
 ```text
 Agent / IDE / Harness
         │
         ▼
-Agent Adapter
+Capability Inspector
         │
         ▼
-Policy + Capability Negotiator
-        │
-        ├── ZTE Constitution
-        ├── ICM Stage Runtime
-        ├── Prompt Registry
-        ├── Resume State
-        ├── Approval Registry
-        └── Evidence Ledger
+Policy Compiler + Agent Adapter
         │
         ▼
-Repository Tools / Git / CI / Browser / Deploy
+Guard + Approval Registry
+        │
+        ▼
+Resumable Phase Runtime
+        │
+        ├── ICM stage files
+        ├── append-only event ledger
+        ├── verification evidence
+        ├── Git checkpoint
+        └── prompt intelligence
+        │
+        ▼
+Repository Tools / CI / Browser / Deploy
+        │
+        ▼
+Optional Fleet API and Metrics
 ```
 
-## Boundaries
+## Repository boundaries
 
-- `bin/`: portable CLI kernel.
-- `.pauli-cloud/`: generated project overlay.
-- `prompts/`: immutable canonical prompts and model-specific adapters.
-- `icm/`: sequential, inspectable product-development stages.
-- `schemas/`: future machine-readable contracts.
+- `bin/`: CLI dispatcher.
+- `src/core.mjs`: safe I/O, hashing, subprocesses, redaction.
+- `src/project.mjs`: initialization, inspection, doctor, verification.
+- `src/policy.mjs`: compiler, guards, approvals, reversible install.
+- `src/runtime.mjs`: phase state, events, checkpoints, fleet, daily report.
+- `src/prompts.mjs`: registry, evaluation, promotion, learnings.
+- `src/server.mjs`: authenticated read-oriented API.
+- `.pauli-cloud/`: generated project-owned state.
+- `schemas/`: machine-readable contracts.
+- `icm/`: build history and acceptance evidence.
+- `docs/`: architecture and operations.
 
-## Agent compatibility contract
+## Trust and ownership
 
-Every adapter must declare:
+- Project owners retain code, prompts, data, configuration, evidence, and backups.
+- Pauli Cloud stores secret references, never secret values.
+- Generated changes are attributable to policy hashes and reversible manifests.
+- Service mode is optional; CLI and plain files remain authoritative.
+- No model vendor, IDE, database, hosting provider, or agent harness is required by the domain layer.
 
-- instruction precedence;
-- branch/worktree constraints;
-- available tools;
-- background execution limits;
-- approval behavior;
-- test and browser capabilities;
-- Git and PR capabilities;
-- resume mechanism;
-- unsupported features.
+## Deployment profiles
 
-Claude Code adopts its session-assigned branch and uses resumable checkpoints. Codex reads `AGENTS.md` and uses isolated worktrees where appropriate. Hermes, Pi, GLM, local models, and generic agents consume plain Markdown instructions plus JSON state and policy contracts.
+### Repository-local
 
-# Roadmap
+CLI only. Best for one operator or one repository.
 
-## Phase 0 — Bootstrap kernel
+### Local fleet service
 
-- CLI: init, doctor, verify, status
-- prompt hash registry
-- ICM bootstrap
-- agent adapters
-- tests and CI
+Docker or native process bound to loopback, with multiple repository roots registered.
 
-## Phase 1 — Capability and constraint negotiation
+### Enterprise remote service
 
-- detect branch, GitHub auth, package manager, test commands, CI, browser support, and deployment targets
-- generate session-compatible instructions
-- record hard and soft constraints
+Container behind TLS, network policy, protected secret injection, monitoring, backups, and GitHub production approvals. Remote mutation APIs are out of scope for Version 1.
 
-## Phase 2 — Policy compiler and enforcement
+## Explicit non-goals for Version 1
 
-- compile ZTE policies into Claude hooks, Codex instructions, generic shell guards, and CI checks
-- block secrets, protected-branch pushes, unsafe destructive commands, and unverified commits
+- autonomous PR merge;
+- storing raw credentials;
+- remote destructive or production mutation endpoints;
+- replacing the underlying coding agent;
+- silently rewriting user-authored instructions;
+- full workflow orchestration across untrusted hosts;
+- proprietary lock-in for core operation.
 
-## Phase 3 — Resumable execution runtime
+## Future roadmap
 
-- phase/bead state machine
-- checkpoint ledger
-- remote SHA verification
-- PR phase ledger
-- loop guard and alternate-plan records
+### 1.1
 
-## Phase 4 — Prompt intelligence
+- JSON Schema runtime validation;
+- signed checkpoint attestations;
+- notification adapters;
+- Windows service and systemd installers;
+- policy packs and organization inheritance.
 
-- canonical/adapter/experiment separation
-- run capture and evaluation
-- measured promotion workflow
-- reusable learnings and failure patterns
+### 1.2
 
-## Phase 5 — Fleet and service mode
+- PostgreSQL fleet index with repository-local state remaining authoritative;
+- OpenTelemetry traces;
+- role-scoped service access;
+- signed webhook delivery;
+- dashboard.
 
-- daemon/API
-- multi-repository registry
-- dashboard
-- notifications
-- OpenTelemetry
-- optional Docker/Coolify deployment
+### 2.0 prerequisites
+
+A write-capable remote API requires scoped identities, request signing, idempotency keys, replay protection, transactional audit events, tenant isolation, and formal external security review.
