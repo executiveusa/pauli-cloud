@@ -1,11 +1,30 @@
 import fs from 'node:fs/promises';
+import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 
-const tracked = spawnSync('git', ['ls-files', '-z'], { encoding: 'utf8' });
-if (tracked.status !== 0) {
-  console.error('Secret scan requires a Git worktree.');
-  process.exit(1);
+const excludedDirectories = new Set([
+  '.git',
+  '.pauli-cloud',
+  'node_modules',
+  'coverage',
+  'workspace'
+]);
+
+async function collectFiles(root = '.') {
+  const files = [];
+  for (const entry of await fs.readdir(root, { withFileTypes: true })) {
+    if (entry.isDirectory() && excludedDirectories.has(entry.name)) continue;
+    const target = path.join(root, entry.name);
+    if (entry.isDirectory()) files.push(...await collectFiles(target));
+    else files.push(target.replace(/^\.\//, ''));
+  }
+  return files;
 }
+
+const tracked = spawnSync('git', ['ls-files', '-z'], { encoding: 'utf8' });
+const files = tracked.status === 0
+  ? tracked.stdout.split('\0').filter(Boolean)
+  : await collectFiles('.');
 
 const exemptions = new Set([
   'src/policy.mjs',
@@ -22,7 +41,7 @@ const assignmentPattern = /(?:^|[\s,{"'])([A-Za-z0-9_]*(?:password|passwd|secret
 const placeholderPattern = /^(?:\$\{|<|example|test|fake|dummy|placeholder|load-from|use-a|ci-only|none|null|redacted|changeme)/i;
 const findings = [];
 
-for (const file of tracked.stdout.split('\0').filter(Boolean)) {
+for (const file of files) {
   if (exemptions.has(file)) continue;
   let content;
   try {
@@ -49,4 +68,4 @@ if (findings.length) {
   }
   process.exit(1);
 }
-console.log(`Secret scan passed: ${tracked.stdout.split('\0').filter(Boolean).length} tracked files checked.`);
+console.log(`Secret scan passed: ${files.length} files checked.`);
