@@ -29,15 +29,23 @@ function send(res, status, body, headers = {}) {
   res.end(payload);
 }
 
-function tokenDigest(value) {
-  return crypto.createHash('sha256').update(String(value)).digest();
+function constantTimeEqual(left, right) {
+  const leftBytes = Buffer.from(String(left), 'utf8');
+  const rightBytes = Buffer.from(String(right), 'utf8');
+  const size = Math.max(leftBytes.length, rightBytes.length, 1);
+  const leftPadded = Buffer.alloc(size);
+  const rightPadded = Buffer.alloc(size);
+  leftBytes.copy(leftPadded);
+  rightBytes.copy(rightPadded);
+  return leftBytes.length === rightBytes.length &&
+    crypto.timingSafeEqual(leftPadded, rightPadded);
 }
 
 function authorized(req, token) {
   if (!token) return true;
   const header = req.headers.authorization ?? '';
   const provided = header.startsWith('Bearer ') ? header.slice(7) : '';
-  return crypto.timingSafeEqual(tokenDigest(provided), tokenDigest(token));
+  return constantTimeEqual(provided, token);
 }
 
 function rateLimiter({ windowMs = 60_000, max = 120 } = {}) {
