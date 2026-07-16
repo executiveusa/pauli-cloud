@@ -92,7 +92,7 @@ export async function appendJsonLine(filePath, event) {
 }
 
 export function redactObject(value) {
-  const secretKey = /(secret|token|password|private.?key|api.?key|authorization|cookie)/i;
+  const secretKey = /(secret|token|password|private.?key|api.?key|authorization|cookie)/i; // pauli-cloud: allow-secret-fixture
   if (Array.isArray(value)) return value.map(redactObject);
   if (value && typeof value === 'object') {
     return Object.fromEntries(
