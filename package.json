@@ -1,0 +1,30 @@
+{
+  "name": "pauli-cloud",
+  "version": "0.1.0",
+  "description": "Model-agnostic ZTE, ICM, prompt-memory, and verification add-on for coding agents.",
+  "type": "module",
+  "private": false,
+  "bin": {
+    "pauli-cloud": "./bin/pauli-cloud.mjs"
+  },
+  "scripts": {
+    "test": "node --test",
+    "doctor": "node ./bin/pauli-cloud.mjs doctor .",
+    "verify": "node ./bin/pauli-cloud.mjs verify .",
+    "check": "npm test && npm run verify"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "files": [
+    "bin",
+    "schemas",
+    "prompts",
+    "icm",
+    "docs",
+    "README.md",
+    "AGENTS.md",
+    "CLAUDE.md",
+    "SECURITY.md"
+  ]
+}
