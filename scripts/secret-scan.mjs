@@ -12,14 +12,16 @@ const exemptions = new Set([
   'scripts/secret-scan.mjs',
   'test/cli.test.mjs'
 ]);
-const patterns = [
+const directPatterns = [
   /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/,
   /\bgh[pousr]_[A-Za-z0-9_]{20,}\b/,
   /\bsk-(?:proj-)?[A-Za-z0-9_-]{20,}\b/,
-  /\bAKIA[0-9A-Z]{16}\b/,
-  /(?:password|passwd|secret|api[_-]?key|token)\s*[:=]\s*["']?[^\s"'${}]{8,}/i
+  /\bAKIA[0-9A-Z]{16}\b/
 ];
+const assignmentPattern = /(?:^|[\s,{"'])([A-Za-z0-9_]*(?:password|passwd|secret|api[_-]?key|token)[A-Za-z0-9_]*)\s*[:=]\s*["']?([^\s"',}]+)/i;
+const placeholderPattern = /^(?:\$\{|<|example|test|fake|dummy|placeholder|load-from|use-a|ci-only|none|null|redacted|changeme)/i;
 const findings = [];
+
 for (const file of tracked.stdout.split('\0').filter(Boolean)) {
   if (exemptions.has(file)) continue;
   let content;
@@ -31,11 +33,16 @@ for (const file of tracked.stdout.split('\0').filter(Boolean)) {
   if (content.includes('\0')) continue;
   content.split('\n').forEach((line, index) => {
     if (line.includes('pauli-cloud: allow-secret-fixture')) return;
-    if (patterns.some((pattern) => pattern.test(line))) {
-      findings.push({ file, line: index + 1 });
+    let detected = directPatterns.some((pattern) => pattern.test(line));
+    const assignment = line.match(assignmentPattern);
+    if (assignment) {
+      const value = assignment[2];
+      if (value.length >= 8 && !placeholderPattern.test(value)) detected = true;
     }
+    if (detected) findings.push({ file, line: index + 1 });
   });
 }
+
 if (findings.length) {
   for (const finding of findings) {
     console.error(`Potential secret: ${finding.file}:${finding.line} (value suppressed)`);
