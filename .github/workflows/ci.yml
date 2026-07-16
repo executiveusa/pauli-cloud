@@ -46,11 +46,35 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
       - name: Tests and per-module coverage
-        run: npm run coverage
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          set -o pipefail
+          npm run coverage 2>&1 | tee "artifacts/coverage-node-${{ matrix.node }}.log"
+      - name: Upload test and coverage evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-node-${{ matrix.node }}-${{ github.run_id }}
+          path: artifacts/coverage-node-${{ matrix.node }}.log
+          if-no-files-found: warn
+          retention-days: 14
       - name: Self verification
         run: npm run verify:self
       - name: Package dry run
-        run: npm pack --dry-run
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          set -o pipefail
+          npm pack --dry-run 2>&1 | tee "artifacts/package-node-${{ matrix.node }}.log"
+      - name: Upload package evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-node-${{ matrix.node }}-${{ github.run_id }}
+          path: artifacts/package-node-${{ matrix.node }}.log
+          if-no-files-found: warn
+          retention-days: 14
       - name: CLI JSON smoke test
         run: |
           temp_dir="$(mktemp -d)"
@@ -67,7 +91,19 @@ jobs:
         with:
           persist-credentials: false
       - name: Build image
-        run: docker build --tag pauli-cloud:${{ github.sha }} .
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          set -o pipefail
+          docker build --progress=plain --tag pauli-cloud:${{ github.sha }} . 2>&1 | tee artifacts/container-build.log
+      - name: Upload container-build evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: container-build-${{ github.run_id }}
+          path: artifacts/container-build.log
+          if-no-files-found: warn
+          retention-days: 14
       - name: Start container
         env:
           PAULI_CLOUD_API_TOKEN: ci-only-token
