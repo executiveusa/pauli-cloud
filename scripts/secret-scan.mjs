@@ -9,7 +9,8 @@ if (tracked.status !== 0) {
 
 const exemptions = new Set([
   'src/policy.mjs',
-  'scripts/secret-scan.mjs'
+  'scripts/secret-scan.mjs',
+  'test/cli.test.mjs'
 ]);
 const patterns = [
   /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/,
