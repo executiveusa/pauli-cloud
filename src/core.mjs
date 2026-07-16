@@ -3,6 +3,8 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 
+const NO_FALLBACK = Symbol('NO_FALLBACK');
+
 export async function exists(filePath) {
   try {
     await fs.access(filePath);
@@ -20,11 +22,11 @@ export function sha256(value) {
   return crypto.createHash('sha256').update(value).digest('hex');
 }
 
-export async function readJson(filePath, fallback = null) {
+export async function readJson(filePath, fallback = NO_FALLBACK) {
   try {
     return JSON.parse(await fs.readFile(filePath, 'utf8'));
   } catch (error) {
-    if (fallback !== null && error.code === 'ENOENT') return fallback;
+    if (fallback !== NO_FALLBACK && error.code === 'ENOENT') return fallback;
     throw error;
   }
 }
