@@ -1,4 +1,4 @@
-FROM node:22-alpine AS validation
+FROM node:26-alpine AS validation
 RUN apk add --no-cache git openssh-client ca-certificates
 WORKDIR /opt/pauli-cloud
 COPY package.json package-lock.json ./
@@ -14,7 +14,7 @@ COPY docs ./docs
 COPY README.md AGENTS.md CLAUDE.md SECURITY.md LICENSE ./
 RUN npm run check && npm pack --dry-run
 
-FROM node:22-alpine AS runtime
+FROM node:26-alpine AS runtime
 RUN apk add --no-cache git openssh-client ca-certificates \
   && addgroup -S pauli \
   && adduser -S -G pauli -h /home/pauli pauli
