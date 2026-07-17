@@ -45,7 +45,7 @@ export function evidenceMatchesCurrentPhase(context, evidence) {
   const verifiedAt = validTime(evidence?.verified_at);
   return Boolean(
     evidence?.ok === true &&
-    evidence?.verification_profile === 'enterprise' &&
+    ['enterprise', 'project'].includes(evidence?.verification_profile) &&
     typeof evidence?.verification_id === 'string' &&
     evidence.verification_id.length > 0 &&
     context.state?.bead_id &&

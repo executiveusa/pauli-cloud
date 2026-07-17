@@ -80,7 +80,7 @@ async function hardenGeneratedGuard(root) {
 
 export async function compilePolicy(root, options = {}) {
   const alreadyHardened = await guardIsHardened(root);
-  if (alreadyHardened) {
+  if (alreadyHardened && !options.dryRun) {
     const preview = await legacy.compilePolicy(root, { ...options, dryRun: true });
     const scopeOnlyDrift =
       preview.ok &&

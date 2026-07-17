@@ -17,7 +17,7 @@ export async function phaseAdvance(root, options = {}) {
     const context = await currentPhaseContext(root);
     const evidence = await readJson(path.join(p.evidence, 'latest.json'), { ok: false });
     if (!evidenceMatchesCurrentPhase(context, evidence)) {
-      throw new Error('cannot enter COMMIT without passing verification evidence bound to the current phase');
+      throw new Error('cannot enter COMMIT without passing verification evidence; current phase-bound verification evidence is required');
     }
   }
 
