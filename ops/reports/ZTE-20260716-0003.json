@@ -1,0 +1,38 @@
+{
+  "schema_version": "1.0.0",
+  "bead_id": "ZTE-20260716-0003",
+  "task": "Pauli Cloud 1.0.1 P1 enterprise safety hotfix",
+  "status": "verified_source_hotfix",
+  "branch": "zte/ZTE-20260716-0003/p1-enterprise-hotfix",
+  "pull_request": "https://github.com/executiveusa/pauli-cloud/pull/15",
+  "head_sha": "32023db44ffcd4e9f4a03b605c1a4c56cee75bc5",
+  "fixed": [
+    "transactional_uninstall_preflight",
+    "phase_bound_verification_evidence",
+    "generated_hook_approval_scope"
+  ],
+  "gates": {
+    "node_20": "pass",
+    "node_22": "pass",
+    "coverage_per_module_80": "pass",
+    "secret_scan": "pass",
+    "enterprise_verify": "pass",
+    "package_cli_smoke": "pass",
+    "container_smoke": "pass",
+    "codeql": "pass",
+    "dependency_review": "pass",
+    "guardian": "pass"
+  },
+  "workflow_runs": {
+    "ci": 29546991682,
+    "codeql": 29546991693,
+    "dependency_review": 29546991689
+  },
+  "production": {
+    "published": false,
+    "deployed": false,
+    "blocked_by_issue": 5,
+    "explicit_approval_received": false
+  },
+  "rollback": "revert the hotfix merge commit"
+}
