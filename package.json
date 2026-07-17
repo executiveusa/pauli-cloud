@@ -1,6 +1,6 @@
 {
   "name": "pauli-cloud",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Enterprise model-agnostic ZTE, ICM, prompt-memory, policy, and verification control plane for coding agents.",
   "type": "module",
   "private": false,
