@@ -9,18 +9,132 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  verify:
+  test:
+    name: Node ${{ matrix.node }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22]
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: ${{ matrix.node }}
           cache: npm
-      - run: npm install --ignore-scripts
-      - run: npm test
-      - run: node ./bin/pauli-cloud.mjs init .
-      - run: npm run verify
+      - name: Install
+        run: npm ci --ignore-scripts
+      - name: Syntax
+        run: npm run lint
+      - name: Secret scan
+        env:
+          PAULI_CLOUD_SCAN_REPORT: artifacts/secret-scan-node-${{ matrix.node }}.json
+        run: npm run secret-scan
+      - name: Upload secret-scan evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: secret-scan-node-${{ matrix.node }}-${{ github.run_id }}
+          path: artifacts/secret-scan-node-${{ matrix.node }}.json
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Tests and per-module coverage
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          set -o pipefail
+          npm run coverage 2>&1 | tee "artifacts/coverage-node-${{ matrix.node }}.log"
+      - name: Upload test and coverage evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-node-${{ matrix.node }}-${{ github.run_id }}
+          path: artifacts/coverage-node-${{ matrix.node }}.log
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Self verification
+        run: npm run verify:self
+      - name: Package dry run
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          set -o pipefail
+          npm pack --dry-run 2>&1 | tee "artifacts/package-node-${{ matrix.node }}.log"
+      - name: Upload package evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-node-${{ matrix.node }}-${{ github.run_id }}
+          path: artifacts/package-node-${{ matrix.node }}.log
+          if-no-files-found: warn
+          retention-days: 14
+      - name: CLI JSON smoke test
+        run: |
+          temp_dir="$(mktemp -d)"
+          node ./bin/pauli-cloud.mjs init "$temp_dir" --json
+          node ./bin/pauli-cloud.mjs doctor "$temp_dir" --json
+          node ./bin/pauli-cloud.mjs compile "$temp_dir" --agent=generic --json
+          node ./bin/pauli-cloud.mjs uninstall "$temp_dir" --json
+
+  container:
+    name: Container build and smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Build image
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          set -o pipefail
+          docker build --progress=plain --tag pauli-cloud:${{ github.sha }} . 2>&1 | tee artifacts/container-build.log
+      - name: Upload container-build evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: container-build-${{ github.run_id }}
+          path: artifacts/container-build.log
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Start container
+        env:
+          PAULI_CLOUD_API_TOKEN: ci-only-token
+        run: |
+          mkdir -p workspace
+          docker run --detach --rm \
+            --name pauli-cloud-ci \
+            --read-only \
+            --tmpfs /tmp:rw,noexec,nosuid,size=64m \
+            --cap-drop ALL \
+            --security-opt no-new-privileges \
+            -e PAULI_CLOUD_API_TOKEN \
+            -p 127.0.0.1:4317:4317 \
+            -v "$PWD/workspace:/workspace" \
+            pauli-cloud:${{ github.sha }}
+      - name: Health and auth smoke
+        env:
+          PAULI_CLOUD_API_TOKEN: ci-only-token
+        run: |
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:4317/healthz >/dev/null; then break; fi
+            sleep 1
+          done
+          curl --fail --silent http://127.0.0.1:4317/healthz
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:4317/v1/status)" = "401"
+          curl --fail --silent \
+            -H "Authorization: Bearer $PAULI_CLOUD_API_TOKEN" \
+            http://127.0.0.1:4317/v1/status
+      - name: Container logs
+        if: always()
+        run: docker logs pauli-cloud-ci || true
+      - name: Stop container
+        if: always()
+        run: docker stop pauli-cloud-ci || true

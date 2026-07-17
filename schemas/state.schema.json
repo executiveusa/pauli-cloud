@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pauli.cloud/schemas/state.schema.json",
+  "title": "Pauli Cloud Active Build State",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "current_phase",
+    "current_stage",
+    "acceptance_remaining",
+    "blockers",
+    "credentials_needed",
+    "next_exact_action",
+    "resume_validation_commands"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "bead_id": { "type": ["string", "null"] },
+    "branch": { "type": ["string", "null"] },
+    "draft_pr": { "type": ["string", "null"] },
+    "last_complete_phase": { "type": ["string", "null"] },
+    "last_commit": { "type": ["string", "null"], "pattern": "^[0-9a-f]{40}$|^$" },
+    "remote_sha_verified": { "type": "boolean" },
+    "current_phase": { "type": "string", "minLength": 1 },
+    "current_stage": {
+      "enum": [
+        "CONTEXT",
+        "PLAN",
+        "IMPLEMENT",
+        "TEST",
+        "GUARDIAN",
+        "VERIFY",
+        "COMMIT",
+        "PUSH",
+        "COMPLETE",
+        "BLOCKED",
+        "FAILED"
+      ]
+    },
+    "acceptance_remaining": { "type": "array", "items": { "type": "string" } },
+    "blockers": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
+    "credentials_needed": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
+    "next_exact_action": { "type": "string", "minLength": 1 },
+    "resume_validation_commands": { "type": "array", "items": { "type": "string" } }
+  }
+}
