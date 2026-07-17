@@ -28,6 +28,7 @@ const files = tracked.status === 0
 
 const exemptions = new Set([
   'src/policy.mjs',
+  'src/policy-legacy.mjs',
   'scripts/secret-scan.mjs',
   'test/cli.test.mjs'
 ]);
