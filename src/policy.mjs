@@ -29,6 +29,16 @@ function managedPath(root, relative) {
   return resolved;
 }
 
+async function guardIsHardened(root) {
+  const target = path.join(root, GUARD_PATH);
+  if (!await exists(target)) return false;
+  const source = await fs.readFile(target, 'utf8');
+  return (
+    source.includes("activeApproval(type,scope='project')") &&
+    source.includes("activeApproval('consequential_agent_action',relativePath)")
+  );
+}
+
 async function hardenGeneratedGuard(root) {
   const p = projectPaths(root);
   const target = path.join(root, GUARD_PATH);
@@ -69,6 +79,22 @@ async function hardenGeneratedGuard(root) {
 }
 
 export async function compilePolicy(root, options = {}) {
+  const alreadyHardened = await guardIsHardened(root);
+  if (alreadyHardened) {
+    const preview = await legacy.compilePolicy(root, { ...options, dryRun: true });
+    const scopeOnlyDrift =
+      preview.ok &&
+      (preview.changes ?? []).every((item) => item.path === GUARD_PATH);
+    if (scopeOnlyDrift) {
+      return {
+        ...preview,
+        changes: [],
+        dry_run: Boolean(options.dryRun),
+        summary: `Policy compile ${options.dryRun ? 'previewed' : 'completed'}: 0 changes, 0 conflicts.`
+      };
+    }
+  }
+
   const result = await legacy.compilePolicy(root, options);
   if (!options.dryRun && result.ok) await hardenGeneratedGuard(root);
   return result;
