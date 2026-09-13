@@ -39,7 +39,7 @@ jobs:
         run: npm run secret-scan
       - name: Upload secret-scan evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: secret-scan-node-${{ matrix.node }}-${{ github.run_id }}
           path: artifacts/secret-scan-node-${{ matrix.node }}.json
@@ -53,7 +53,7 @@ jobs:
           npm run coverage 2>&1 | tee "artifacts/coverage-node-${{ matrix.node }}.log"
       - name: Upload test and coverage evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-node-${{ matrix.node }}-${{ github.run_id }}
           path: artifacts/coverage-node-${{ matrix.node }}.log
@@ -69,7 +69,7 @@ jobs:
           npm pack --dry-run 2>&1 | tee "artifacts/package-node-${{ matrix.node }}.log"
       - name: Upload package evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: package-node-${{ matrix.node }}-${{ github.run_id }}
           path: artifacts/package-node-${{ matrix.node }}.log
@@ -98,7 +98,7 @@ jobs:
           docker build --progress=plain --tag pauli-cloud:${{ github.sha }} . 2>&1 | tee artifacts/container-build.log
       - name: Upload container-build evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: container-build-${{ github.run_id }}
           path: artifacts/container-build.log
